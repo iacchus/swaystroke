@@ -21,21 +21,40 @@ A modular Python-based gesture recognition tool for Sway/SwayFX (using GTK Layer
 
 ## Usage
 
-### 1. Record a gesture
+### Record a gesture
 ```bash
 swaystroke record "close" "swaymsg kill"
 ```
 Click and drag to draw your gesture in the transparent overlay.
 
-### 2. Listen for gestures
+### Listen for gestures
 ```bash
 swaystroke listen
 ```
 Draw your gesture. The tool will identify the window under your starting point, focus it, and run the command.
 
-### 3. Debug gestures
+### List gestures
+```bash
+swaystroke list
+swaystroke list-gui
+```
+Show all recorded gestures either in an ASCII table or a scrollable graphical window.
+
+### Show a specific gesture
+```bash
+swaystroke show "close"
+```
+Open the visualizer to display the recorded path for a specific gesture.
+
+### Debug gestures
 ```bash
 swaystroke debug
 ```
 Draw a gesture to see a side-by-side comparison with the closest match.
+
+### Generate config
+```bash
+swaystroke generate-config
+```
+Generate the default configuration file in the config directory.
 
