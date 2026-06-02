@@ -1,14 +1,14 @@
 import sys
 import subprocess
 import time
-from .config import GESTURE_FILE
+from .config import GESTURE_FILE, generate_default_config
 from .storage import StorageManager
 from .recognizer import Recognizer
 from .gesture import Gesture
-from .gui import capture_gesture_gui
+from .overlay import capture_gesture_gui
 from .focus import focus_window_at
 from .visualizer import GestureVisualizer
-from .list_gui import show_gesture_list
+from .list_window import show_gesture_list
 
 def print_help():
     print("Swaystroke - A gesture recognition tool for Sway/Wayland")
@@ -20,6 +20,7 @@ def print_help():
     print("  listen                     - Listen for a gesture and execute the corresponding command")
     print("  debug                      - Listen for a gesture and open the visualizer to show the match and score")
     print("  show <name>                - Open the visualizer to display the recorded path for a specific gesture")
+    print("  generate-config            - Generate the default configuration file in the config directory")
     print("  help, --help, -h           - Show this help message")
 
 def main():
@@ -28,6 +29,11 @@ def main():
         sys.exit(0 if len(sys.argv) > 1 else 1)
 
     mode = sys.argv[1]
+
+    if mode == "generate-config":
+        generate_default_config()
+        sys.exit(0)
+
     storage = StorageManager(GESTURE_FILE)
 
     if mode == "record":

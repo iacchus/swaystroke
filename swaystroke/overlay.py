@@ -4,6 +4,16 @@ gi.require_version('GtkLayerShell', '0.1')
 from gi.repository import Gtk, Gdk, GtkLayerShell
 import cairo
 from .gesture import Gesture
+from .config import CONFIG
+
+def hex_to_rgba(hex_color, opacity=1.0):
+    hex_color = hex_color.lstrip('#')
+    if len(hex_color) == 6:
+        r = int(hex_color[0:2], 16) / 255.0
+        g = int(hex_color[2:4], 16) / 255.0
+        b = int(hex_color[4:6], 16) / 255.0
+        return r, g, b, opacity
+    return 0.0, 0.0, 0.0, opacity
 
 class GestureGUI(Gtk.Window):
     def __init__(self):
@@ -79,19 +89,34 @@ class GestureGUI(Gtk.Window):
         return True
 
     def on_draw(self, widget, cr):
-        # Clear background to a very slight tint so user knows it's active
-        # Or completely transparent. Let's use a very faint dark tint (e.g., 10% opacity)
-        cr.set_source_rgba(0, 0, 0, 0.1)
+        width = self.get_allocated_width()
+        
+        # Clear background using config overlay settings
+        bg_r, bg_g, bg_b, bg_a = hex_to_rgba(CONFIG["overlay"]["color"], CONFIG["overlay"]["opacity"])
+        cr.set_source_rgba(bg_r, bg_g, bg_b, bg_a)
         cr.set_operator(cairo.OPERATOR_SOURCE)
         cr.paint()
         cr.set_operator(cairo.OPERATOR_OVER)
         
+        # Draw overlay text if present
+        overlay_text = CONFIG["overlay"].get("text", "")
+        if overlay_text:
+            cr.set_source_rgba(1.0, 1.0, 1.0, 0.8)  # White text
+            cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
+            cr.set_font_size(24)
+            extents = cr.text_extents(overlay_text)
+            x = (width - extents.width) / 2
+            y = 50
+            cr.move_to(x, y)
+            cr.show_text(overlay_text)
+        
         if len(self.points) < 2:
             return False
 
-        # Draw the gesture trail
-        cr.set_source_rgba(1.0, 0.0, 0.0, 1.0) # Red
-        cr.set_line_width(4)
+        # Draw the gesture trail using config settings
+        trail_r, trail_g, trail_b, trail_a = hex_to_rgba(CONFIG["trail"]["color"], CONFIG["trail"]["opacity"])
+        cr.set_source_rgba(trail_r, trail_g, trail_b, trail_a)
+        cr.set_line_width(CONFIG["trail"]["width"])
         cr.set_line_cap(cairo.LINE_CAP_ROUND)
         cr.set_line_join(cairo.LINE_JOIN_ROUND)
         
