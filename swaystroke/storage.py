@@ -18,6 +18,8 @@ class StorageManager:
                 
         if not replaced:
             gestures.append(gesture)
+            
+        os.makedirs(os.path.dirname(self.file_path), exist_ok=True)
         
         with open(self.file_path, 'w') as f:
             json.dump([g.to_dict() for g in gestures], f, indent=4)

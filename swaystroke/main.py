@@ -16,6 +16,7 @@ def main():
         print("  swaystroke record <name> [command]")
         print("  swaystroke listen")
         print("  swaystroke debug")
+        print("  swaystroke show <name>")
         sys.exit(1)
 
     mode = sys.argv[1]
@@ -109,6 +110,22 @@ def main():
             cmd_str = (cmd[:27] + "...") if len(cmd) > 30 else cmd
             print(f"| {name_str:<20} | {cmd_str:<30} | {len(g.points):<10} |")
         print("+" + "-"*22 + "+" + "-"*32 + "+" + "-"*12 + "+")
+
+    elif mode == "show":
+        if len(sys.argv) < 3:
+            print("Please provide the name of the gesture to show.")
+            print("Usage: swaystroke show <name>")
+            sys.exit(1)
+        name = sys.argv[2]
+        templates = storage.load_all()
+        target = next((g for g in templates if g.name == name), None)
+        
+        if not target:
+            print(f"Gesture '{name}' not found.")
+            sys.exit(1)
+            
+        vis = GestureVisualizer()
+        vis.show(target.normalize(), title=f"Gesture: {target.name}")
 
     else:
         print(f"Unknown mode: {mode}")
