@@ -8,16 +8,24 @@ from .gesture import Gesture
 from .gui import capture_gesture_gui
 from .focus import focus_window_at
 from .visualizer import GestureVisualizer
+from .list_gui import show_gesture_list
+
+def print_help():
+    print("Swaystroke - A gesture recognition tool for Sway/Wayland")
+    print("\nUsage: swaystroke <command> [args...]")
+    print("\nCommands:")
+    print("  list                       - Print an ASCII table of all recorded gestures and their commands")
+    print("  list-gui                   - Show a scrollable, graphical window of all recorded gestures")
+    print("  record <name> [command]    - Record a new gesture with the given name and map it to a shell command")
+    print("  listen                     - Listen for a gesture and execute the corresponding command")
+    print("  debug                      - Listen for a gesture and open the visualizer to show the match and score")
+    print("  show <name>                - Open the visualizer to display the recorded path for a specific gesture")
+    print("  help, --help, -h           - Show this help message")
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage:")
-        print("  swaystroke list")
-        print("  swaystroke record <name> [command]")
-        print("  swaystroke listen")
-        print("  swaystroke debug")
-        print("  swaystroke show <name>")
-        sys.exit(1)
+    if len(sys.argv) < 2 or sys.argv[1] in ["help", "--help", "-h"]:
+        print_help()
+        sys.exit(0 if len(sys.argv) > 1 else 1)
 
     mode = sys.argv[1]
     storage = StorageManager(GESTURE_FILE)
@@ -110,6 +118,9 @@ def main():
             cmd_str = (cmd[:27] + "...") if len(cmd) > 30 else cmd
             print(f"| {name_str:<20} | {cmd_str:<30} | {len(g.points):<10} |")
         print("+" + "-"*22 + "+" + "-"*32 + "+" + "-"*12 + "+")
+
+    elif mode == "list-gui":
+        show_gesture_list()
 
     elif mode == "show":
         if len(sys.argv) < 3:
