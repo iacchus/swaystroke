@@ -12,9 +12,10 @@ from .visualizer import GestureVisualizer
 def main():
     if len(sys.argv) < 2:
         print("Usage:")
-        print("  python -m swaystroke.main record <name> [command]")
-        print("  python -m swaystroke.main listen")
-        print("  python -m swaystroke.main debug")
+        print("  swaystroke list")
+        print("  swaystroke record <name> [command]")
+        print("  swaystroke listen")
+        print("  swaystroke debug")
         sys.exit(1)
 
     mode = sys.argv[1]
@@ -23,10 +24,17 @@ def main():
     if mode == "record":
         if len(sys.argv) < 3:
             print("Please provide a name for the gesture.")
-            print("Usage: python -m swaystroke.main record <name> [command]")
+            print("Usage: swaystroke record <name> [command]")
             sys.exit(1)
         name = sys.argv[2]
         command = sys.argv[3] if len(sys.argv) > 3 else None
+        
+        templates = storage.load_all()
+        if any(g.name == name for g in templates):
+            resp = input(f"Gesture '{name}' already exists. Overwrite? [y/N]: ")
+            if resp.lower() != 'y':
+                print("Aborting.")
+                sys.exit(0)
         
         print(f"A transparent overlay will appear. Click and drag to draw '{name}'. Press Esc to cancel.")
         gesture = capture_gesture_gui()
@@ -85,6 +93,22 @@ def main():
                     vis.show(gesture.normalize(), title="Unrecognized Gesture", score=score)
         else:
             print("Gesture cancelled or invalid.")
+
+    elif mode == "list":
+        templates = storage.load_all()
+        if not templates:
+            print("No gestures found.")
+            sys.exit(0)
+            
+        print("+" + "-"*22 + "+" + "-"*32 + "+" + "-"*12 + "+")
+        print(f"| {'Name':<20} | {'Command':<30} | {'Points':<10} |")
+        print("+" + "-"*22 + "+" + "-"*32 + "+" + "-"*12 + "+")
+        for g in templates:
+            cmd = g.command if g.command else "None"
+            name_str = (g.name[:17] + "...") if len(g.name) > 20 else g.name
+            cmd_str = (cmd[:27] + "...") if len(cmd) > 30 else cmd
+            print(f"| {name_str:<20} | {cmd_str:<30} | {len(g.points):<10} |")
+        print("+" + "-"*22 + "+" + "-"*32 + "+" + "-"*12 + "+")
 
     else:
         print(f"Unknown mode: {mode}")

@@ -8,7 +8,16 @@ class StorageManager:
 
     def save_gesture(self, gesture):
         gestures = self.load_all()
-        gestures.append(gesture)
+        
+        replaced = False
+        for i, g in enumerate(gestures):
+            if g.name == gesture.name:
+                gestures[i] = gesture
+                replaced = True
+                break
+                
+        if not replaced:
+            gestures.append(gesture)
         
         with open(self.file_path, 'w') as f:
             json.dump([g.to_dict() for g in gestures], f, indent=4)
