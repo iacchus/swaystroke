@@ -1,4 +1,4 @@
-# Swaystroke PoC
+# Swaystroke
 
 A modular Python-based gesture recognition tool for Sway/SwayFX (using GTK Layer Shell and `i3ipc`).
 
