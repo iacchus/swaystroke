@@ -13,11 +13,33 @@ A modular Python-based gesture recognition tool for Sway/SwayFX (using GTK Layer
 - `main.py`: Entry point for recording, listening, and debugging.
 - `visualizer.py`: Imported comparison tool to see gesture matches.
 
-## Prerequisites
+## Installation
 
-- Python 3
-- `python-i3ipc`, `python-gi`, `python-xlib`, `pycairo`
-- `gtk-layer-shell` library
+Swaystroke requires GTK3, GTK Layer Shell, and PyGObject bindings. These are best installed via your system package manager.
+
+### Arch Linux
+
+Install the required system dependencies:
+```bash
+sudo pacman -S gtk3 gtk-layer-shell python-gobject python-cairo
+```
+Then install Swaystroke via `pip` or `pipx`:
+```bash
+pipx install swaystroke
+```
+*(Note: `pipx` is recommended for installing Python applications in isolated environments.)*
+
+### Debian / Ubuntu
+
+Install the required system dependencies:
+```bash
+sudo apt update
+sudo apt install libgtk-3-0 libgtk-layer-shell0 gir1.2-gtk-3.0 gir1.2-gtklayershell-0.1 python3-gi python3-gi-cairo python3-pip pipx
+```
+Then install Swaystroke via `pipx`:
+```bash
+pipx install swaystroke
+```
 
 ## Usage
 
