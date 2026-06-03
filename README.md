@@ -29,7 +29,7 @@ Swaystroke requires GTK3, GTK Layer Shell, and PyGObject bindings. These are bes
 
 Install the required system dependencies:
 ```bash
-sudo pacman -S gtk3 gtk-layer-shell python-gobject python-cairo
+sudo pacman -S gtk3 gtk-layer-shell python-gobject python-cairo python-pipx
 ```
 Then install Swaystroke via `pip` or `pipx`:
 ```bash
