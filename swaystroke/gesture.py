@@ -1,13 +1,14 @@
 import math
 
 class Gesture:
-    def __init__(self, points=None, name=None, command=None, app_id=None, app_class=None, id=None):
+    def __init__(self, points=None, name=None, command=None, app_id=None, app_class=None, id=None, action_type="command"):
         self.points = points or []
         self.name = name
         self.command = command
         self.app_id = app_id
         self.app_class = app_class
         self.id = id
+        self.action_type = action_type
 
     def add_point(self, x, y):
         self.points.append((x, y))
@@ -93,7 +94,8 @@ class Gesture:
             "command": self.command,
             "points": self.points,
             "app_id": getattr(self, "app_id", None),
-            "app_class": getattr(self, "app_class", None)
+            "app_class": getattr(self, "app_class", None),
+            "action_type": getattr(self, "action_type", "command")
         }
 
     @classmethod
@@ -104,5 +106,6 @@ class Gesture:
             command=data.get("command"),
             app_id=data.get("app_id"),
             app_class=data.get("app_class"),
-            id=data.get("id")
+            id=data.get("id"),
+            action_type=data.get("action_type", "command")
         )

@@ -21,6 +21,8 @@ Swaystroke uses a simplified implementation of the **$1 Unistroke Recognizer** a
 3. **Translation:** The points are translated so that the centroid (center of mass) of the gesture sits at the origin `(0, 0)`.
 4. **Matching:** It computes the average Euclidean distance between the corresponding points of the drawn gesture and the stored templates. The closest match (with the lowest average distance) is selected as the recognized gesture.
 
+*Swaystroke also features **Directional Invariance** (gestures are matched both forwards and backwards) and **Multi-stroke support** (you can lift your mouse to draw complex shapes like an "X" before the timeout triggers).*
+
 ## Installation
 
 Swaystroke requires GTK3, GTK Layer Shell, and PyGObject bindings. These are best installed via your system package manager.
@@ -53,10 +55,11 @@ pipx install swaystroke
 
 ### Record a gesture
 ```bash
-swaystroke record [--global] [--app-id ID] [--app-class CLASS] [--get-app-id-or-class] <name> [command]
+swaystroke record [--type TYPE] [--global] [--app-id ID] [--app-class CLASS] [--get-app-id-or-class] <name> [command]
 ```
 Click and drag to draw your gesture in the transparent overlay.
 Options:
+- `--type`: Action type to execute: `command` (default shell command), `key` (native wayland keypress via wtype/ydotool), `text` (native text typing).
 - `--global`: Record the gesture to be available globally.
 - `--app-id ID`: Bind the gesture to a specific Wayland application ID.
 - `--app-class CLASS`: Bind the gesture to a specific XWayland window class.
@@ -69,6 +72,17 @@ If no options are provided, it defaults to a global gesture.
 swaystroke listen
 ```
 Draw your gesture. The tool will identify the window under your starting point, focus it, and run the command.
+
+### Daemon Mode (Zero-Latency)
+For zero startup latency, you can run Swaystroke in daemon mode. This keeps the GTK overlay in the background.
+```bash
+swaystroke daemon &
+```
+Trigger the listening overlay instantly via:
+```bash
+swaystroke trigger
+```
+Bind `swaystroke trigger` to a mouse button in your sway config for the best experience.
 
 ### List gestures
 ```bash

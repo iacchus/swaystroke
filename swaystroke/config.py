@@ -17,6 +17,20 @@ CONFIG_FILE = os.path.join(CONFIG_DIR, 'config.toml')
 os.makedirs(CONFIG_DIR, exist_ok=True)
 
 # Default configurations
+DEFAULT_CONFIG = {
+    "trail": {
+        "color": "#ff0000",
+        "opacity": 1.0,
+        "width": 4
+    },
+    "overlay": {
+        "color": "#000000",
+        "opacity": 0.1,
+        "text": ""
+    },
+    "multistroke_timeout": 500
+}
+
 CONFIG = {
     "trail": {
         "color": "#ff0000",
@@ -26,8 +40,9 @@ CONFIG = {
     "overlay": {
         "color": "#000000",
         "opacity": 0.1,
-        "text": "Swaystroke is listening for gesture..."
-    }
+        "text": ""
+    },
+    "multistroke_timeout": 500
 }
 
 if os.path.exists(CONFIG_FILE):

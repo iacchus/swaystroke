@@ -18,7 +18,9 @@ class Recognizer:
 
         for template in self.templates:
             normalized_template = template.normalize()
-            score = self._compare(normalized_target, normalized_template)
+            score_fwd = self._compare(normalized_target, normalized_template)
+            score_rev = self._compare(normalized_target, list(reversed(normalized_template)))
+            score = max(score_fwd, score_rev)
             
             if score > best_score:
                 best_score = score

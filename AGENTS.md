@@ -5,7 +5,7 @@ Swaystroke is a modular Python-based gesture recognition tool for Sway/SwayFX, u
 
 ## Architecture Details
 - **`config.py`**: Settings (e.g., trigger button configuration).
-- **`gesture.py`**: Handles point data and normalization.
+- **`gesture.py`**: Handles point data and normalization. Supports `action_type` (command, key, text) for native wayland input.
 - **`gui.py`**: Native GTK3 Layer Shell overlay for drawing gestures.
 - **`storage.py`**: Manages saving and loading gestures to/from `gestures.json`.
 - **`recognizer.py`**: Compares new gestures against stored templates.
@@ -20,9 +20,11 @@ Swaystroke is a modular Python-based gesture recognition tool for Sway/SwayFX, u
 
 ## Command Execution & Usage
 - **Listing Gestures**: `swaystroke list`
-- **Recording a Gesture**: `swaystroke record [--global] [--app-id ID] [--app-class CLASS] [--get-app-id-or-class] <name> [command]`
+- **Recording a Gesture**: `swaystroke record [--type TYPE] [--global] [--app-id ID] [--app-class CLASS] [--get-app-id-or-class] <name> [command]`
 - **Deleting a Gesture**: `swaystroke delete <id_or_name>`
 - **Listening**: `swaystroke listen`
+- **Daemon Mode**: `swaystroke daemon` (runs background overlay listening on UNIX socket)
+- **Daemon Trigger**: `swaystroke trigger` (triggers the daemon instantly)
 - **Debugging**: `swaystroke debug`
 
 ## Guidelines for Agents

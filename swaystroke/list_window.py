@@ -180,9 +180,49 @@ class GestureListWindow(Gtk.Window):
             info_label.set_halign(Gtk.Align.START)
             text_vbox.pack_start(info_label, False, False, 0)
 
+            # Action Buttons Box
+            btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+            btn_box.set_valign(Gtk.Align.CENTER)
+            hbox.pack_end(btn_box, False, False, 0)
+            
+            rerecord_btn = Gtk.Button(label="Re-record")
+            rerecord_btn.connect("clicked", self.on_rerecord_clicked, g)
+            btn_box.pack_start(rerecord_btn, False, False, 0)
+            
+            delete_btn = Gtk.Button(label="Delete")
+            delete_btn.get_style_context().add_class("destructive-action")
+            delete_btn.connect("clicked", self.on_delete_clicked, g)
+            btn_box.pack_start(delete_btn, False, False, 0)
+
             self.listbox.add(row)
 
         self.listbox.show_all()
+
+    def on_delete_clicked(self, button, g):
+        storage = StorageManager(GESTURE_FILE)
+        if getattr(g, "id", None) is not None:
+            storage.delete_gesture(str(g.id))
+        else:
+            storage.delete_gesture(g.name)
+        self.gestures = storage.load_all()
+        self.populate_list()
+
+    def on_rerecord_clicked(self, button, g):
+        self.hide()
+        while Gtk.events_pending():
+            Gtk.main_iteration()
+            
+        from .overlay import capture_gesture_gui
+        new_g = capture_gesture_gui()
+        
+        if new_g:
+            g.points = new_g.points
+            storage = StorageManager(GESTURE_FILE)
+            storage.save_gesture(g)
+            self.gestures = storage.load_all()
+            
+        self.show_all()
+        self.populate_list()
 
 def show_gesture_list():
     storage = StorageManager(GESTURE_FILE)

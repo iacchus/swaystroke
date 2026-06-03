@@ -1,7 +1,7 @@
 import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('GtkLayerShell', '0.1')
-from gi.repository import Gtk, Gdk, GtkLayerShell
+from gi.repository import Gtk, Gdk, GtkLayerShell, GLib
 import cairo
 from .gesture import Gesture
 from .config import CONFIG
@@ -16,11 +16,14 @@ def hex_to_rgba(hex_color, opacity=1.0):
     return 0.0, 0.0, 0.0, opacity
 
 class GestureGUI(Gtk.Window):
-    def __init__(self):
+    def __init__(self, on_finished=None):
         super().__init__()
-        self.points = []
+        self.on_finished = on_finished
         self.is_drawing = False
         self.gesture = None
+        self.strokes = []
+        self.current_stroke = []
+        self.timeout_id = None
 
         # Configure Layer Shell to cover the whole screen
         GtkLayerShell.init_for_window(self)
@@ -57,22 +60,31 @@ class GestureGUI(Gtk.Window):
 
     def on_key_press(self, widget, event):
         if event.keyval == Gdk.KEY_Escape:
-            Gtk.main_quit()
+            self.hide()
+            if self.on_finished:
+                self.on_finished(None)
             return True
         return False
 
     def on_button_press(self, widget, event):
-        # Start drawing on any button press
+        if self.timeout_id:
+            GLib.source_remove(self.timeout_id)
+            self.timeout_id = None
+            
         self.is_drawing = True
-        self.points = [(event.x, event.y)]
-        self.gesture = Gesture()
+        self.current_stroke = [(event.x, event.y)]
+        self.strokes.append(self.current_stroke)
+        
+        if not self.gesture:
+            self.gesture = Gesture()
+            
         self.gesture.add_point(event.x, event.y)
         self.queue_draw()
         return True
 
     def on_motion_notify(self, widget, event):
         if self.is_drawing:
-            self.points.append((event.x, event.y))
+            self.current_stroke.append((event.x, event.y))
             self.gesture.add_point(event.x, event.y)
             self.queue_draw()
         return True
@@ -80,13 +92,20 @@ class GestureGUI(Gtk.Window):
     def on_button_release(self, widget, event):
         if self.is_drawing:
             self.is_drawing = False
-            self.points.append((event.x, event.y))
+            self.current_stroke.append((event.x, event.y))
             self.gesture.add_point(event.x, event.y)
             self.queue_draw()
             
-            # Quit GTK loop
-            Gtk.main_quit()
+            timeout_ms = CONFIG.get("multistroke_timeout", 500)
+            self.timeout_id = GLib.timeout_add(timeout_ms, self.finish_gesture)
         return True
+
+    def finish_gesture(self):
+        self.timeout_id = None
+        self.hide()
+        if self.on_finished:
+            self.on_finished(self.gesture)
+        return False
 
     def on_draw(self, widget, cr):
         width = self.get_allocated_width()
@@ -110,29 +129,33 @@ class GestureGUI(Gtk.Window):
             cr.move_to(x, y)
             cr.show_text(overlay_text)
         
-        if len(self.points) < 2:
-            return False
-
         # Draw the gesture trail using config settings
         trail_r, trail_g, trail_b, trail_a = hex_to_rgba(CONFIG["trail"]["color"], CONFIG["trail"]["opacity"])
         cr.set_source_rgba(trail_r, trail_g, trail_b, trail_a)
         cr.set_line_width(CONFIG["trail"]["width"])
         cr.set_line_cap(cairo.LINE_CAP_ROUND)
         cr.set_line_join(cairo.LINE_JOIN_ROUND)
-        
-        cr.move_to(self.points[0][0], self.points[0][1])
-        for x, y in self.points[1:]:
-            cr.line_to(x, y)
-            
-        cr.stroke()
+
+        for stroke in self.strokes:
+            if len(stroke) < 2:
+                continue
+            cr.move_to(stroke[0][0], stroke[0][1])
+            for x, y in stroke[1:]:
+                cr.line_to(x, y)
+            cr.stroke()
         return False
 
 def capture_gesture_gui():
-    win = GestureGUI()
+    gesture_result = []
+    def on_finished(g):
+        gesture_result.append(g)
+        Gtk.main_quit()
+        
+    win = GestureGUI(on_finished=on_finished)
     win.show_all()
     Gtk.main()
     
-    gesture = win.gesture
+    gesture = gesture_result[0] if gesture_result else None
     
     # Crucial: Destroy the window and flush events so Wayland refocuses the underlying window
     win.destroy()

@@ -12,6 +12,8 @@ from .overlay import capture_gesture_gui
 from .focus import focus_window_at, get_window_info_at
 from .visualizer import GestureVisualizer
 from .list_window import show_gesture_list
+import socket
+import os
 
 @click.group()
 def main():
@@ -23,14 +25,38 @@ def cmd_generate_config():
     """Generate the default configuration file in the config directory"""
     generate_default_config()
 
+def execute_gesture_action(match, gesture):
+    if not match or not match.command:
+        return
+        
+    start_x, start_y = gesture.points[0]
+    focus_window_at(start_x, start_y)
+    time.sleep(0.05)
+    
+    action_type = getattr(match, "action_type", "command")
+    if action_type == "command":
+        subprocess.Popen(match.command, shell=True)
+    elif action_type == "text":
+        subprocess.Popen(["wtype", match.command])
+    elif action_type == "key":
+        keys = match.command.split('+')
+        args = ["wtype"]
+        for k in keys[:-1]:
+            args.extend(["-M", k])
+        args.extend(["-k", keys[-1]])
+        for k in reversed(keys[:-1]):
+            args.extend(["-m", k])
+        subprocess.Popen(args)
+
 @main.command(name="record")
+@click.option("--type", "action_type", type=click.Choice(["command", "key", "text"]), default="command", help="The type of action to record (command, key, or text).")
 @click.option("--global", "is_global", is_flag=True, help="Record the gesture to be available globally.")
 @click.option("--app-id", help="Bind the gesture to a specific Wayland application ID.")
 @click.option("--app-class", help="Bind the gesture to a specific XWayland window class.")
 @click.option("--get-app-id-or-class", is_flag=True, help="Automatically get the app ID or class from the window under the gesture.")
 @click.argument("name")
 @click.argument("command", required=False)
-def cmd_record(is_global, app_id, app_class, get_app_id_or_class, name, command):
+def cmd_record(action_type, is_global, app_id, app_class, get_app_id_or_class, name, command):
     """Record a new gesture with the given name and map it to a shell command"""
     storage = StorageManager(GESTURE_FILE)
     templates = storage.load_all()
@@ -60,6 +86,7 @@ def cmd_record(is_global, app_id, app_class, get_app_id_or_class, name, command)
         gesture.command = command
         gesture.app_id = app_id
         gesture.app_class = app_class
+        gesture.action_type = action_type
         storage.save_gesture(gesture)
         click.echo(f"Gesture '{name}' saved to {GESTURE_FILE}.")
         if command:
@@ -120,13 +147,8 @@ def _listen_or_debug(mode):
                 )
             else:
                 if match.command:
-                    click.echo(f"Executing: {match.command}")
-                    
-                    start_x, start_y = gesture.points[0]
-                    focus_window_at(start_x, start_y)
-                    
-                    time.sleep(0.05)
-                    subprocess.Popen(match.command, shell=True)
+                    click.echo(f"Executing: {match.command} (Type: {getattr(match, 'action_type', 'command')})")
+                    execute_gesture_action(match, gesture)
         else:
             click.echo(f"No match. (Best score: {score:.2f})")
             if mode == "debug":
@@ -194,6 +216,83 @@ def cmd_delete(identifier):
         click.echo(f"Gesture '{identifier}' deleted successfully.")
     else:
         click.echo(f"Gesture '{identifier}' not found.")
+
+@main.command(name="daemon")
+def cmd_daemon():
+    """Run Swaystroke in the background for zero-latency triggers"""
+    import gi
+    gi.require_version('Gtk', '3.0')
+    from gi.repository import Gtk, GLib
+    from .overlay import GestureGUI
+    
+    sock_path = "/tmp/swaystroke.sock"
+    if os.path.exists(sock_path):
+        os.remove(sock_path)
+        
+    server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    server.bind(sock_path)
+    server.listen(1)
+    server.setblocking(False)
+    
+    def on_gesture_finished(gesture):
+        if not gesture or len(gesture.points) < 5:
+            return
+            
+        storage = StorageManager(GESTURE_FILE)
+        templates = storage.load_all()
+        
+        start_x, start_y = gesture.points[0]
+        win_app_id, win_app_class = get_window_info_at(start_x, start_y)
+        
+        filtered = []
+        for t in templates:
+            if t.app_id is None and t.app_class is None:
+                filtered.append(t)
+            elif t.app_id and win_app_id and t.app_id == win_app_id:
+                filtered.append(t)
+            elif t.app_class and win_app_class and t.app_class == win_app_class:
+                filtered.append(t)
+                
+        if not filtered:
+            return
+            
+        recognizer = Recognizer(filtered)
+        match, score = recognizer.recognize(gesture)
+        if match and match.command:
+            execute_gesture_action(match, gesture)
+            
+    win = GestureGUI(on_finished=on_gesture_finished)
+    
+    def on_connection(source, condition):
+        try:
+            conn, addr = server.accept()
+            data = conn.recv(1024).decode()
+            if data == "trigger":
+                win.points = []
+                win.is_drawing = False
+                win.gesture = None
+                win.queue_draw()
+                win.show_all()
+            conn.close()
+        except:
+            pass
+        return True
+        
+    GLib.io_add_watch(server.fileno(), GLib.IO_IN, on_connection)
+    click.echo("Swaystroke daemon running...")
+    Gtk.main()
+
+@main.command(name="trigger")
+def cmd_trigger():
+    """Trigger the daemon overlay instantly"""
+    sock_path = "/tmp/swaystroke.sock"
+    try:
+        client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        client.connect(sock_path)
+        client.sendall(b"trigger")
+        client.close()
+    except Exception as e:
+        click.echo(f"Could not connect to daemon: {e}. Is it running?")
 
 if __name__ == "__main__":
     main()
