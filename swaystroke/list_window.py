@@ -160,7 +160,8 @@ class GestureListWindow(Gtk.Window):
             hbox.pack_start(text_vbox, True, True, 0)
 
             name_label = Gtk.Label()
-            name_label.set_markup(f"<b><big>{g.name}</big></b>")
+            g_id = f"#{g.id} " if getattr(g, 'id', None) is not None else ""
+            name_label.set_markup(f"<b><big>{g_id}{g.name}</big></b>")
             name_label.set_halign(Gtk.Align.START)
             text_vbox.pack_start(name_label, False, False, 0)
 

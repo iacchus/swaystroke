@@ -23,9 +23,16 @@ A modular Python-based gesture recognition tool for Sway/SwayFX (using GTK Layer
 
 ### Record a gesture
 ```bash
-swaystroke record "close" "swaymsg kill"
+swaystroke record [--global] [--app-id ID] [--app-class CLASS] [--get-app-id-or-class] <name> [command]
 ```
 Click and drag to draw your gesture in the transparent overlay.
+Options:
+- `--global`: Record the gesture to be available globally.
+- `--app-id ID`: Bind the gesture to a specific Wayland application ID.
+- `--app-class CLASS`: Bind the gesture to a specific XWayland window class.
+- `--get-app-id-or-class`: Automatically get the app ID or class from the window under the gesture.
+
+If no options are provided, it defaults to a global gesture.
 
 ### Listen for gestures
 ```bash
@@ -45,6 +52,12 @@ Show all recorded gestures either in an ASCII table or a scrollable graphical wi
 swaystroke show "close"
 ```
 Open the visualizer to display the recorded path for a specific gesture.
+
+### Delete a gesture
+```bash
+swaystroke delete "close"
+```
+Delete a recorded gesture by its name.
 
 ### Debug gestures
 ```bash

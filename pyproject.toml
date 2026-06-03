@@ -4,13 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name        = "swaystroke"
-version     = "0.1.0"
+version     = "0.0.1"
 description = "A modular Python-based gesture recognition tool for Sway/SwayFX"
 readme      = "README.md"
 requires-python = ">=3.7"
 
 dependencies = [
     "i3ipc",
+    "click",
 ]
 
 [project.scripts]

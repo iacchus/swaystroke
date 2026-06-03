@@ -20,7 +20,8 @@ Swaystroke is a modular Python-based gesture recognition tool for Sway/SwayFX, u
 
 ## Command Execution & Usage
 - **Listing Gestures**: `swaystroke list`
-- **Recording a Gesture**: `swaystroke record <name> <command>`
+- **Recording a Gesture**: `swaystroke record [--global] [--app-id ID] [--app-class CLASS] [--get-app-id-or-class] <name> [command]`
+- **Deleting a Gesture**: `swaystroke delete <name>`
 - **Listening**: `swaystroke listen`
 - **Debugging**: `swaystroke debug`
 
