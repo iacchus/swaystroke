@@ -10,7 +10,7 @@ def get_focus_history(node, history_list):
             if child:
                 get_focus_history(child, history_list)
 
-def focus_window_at(x, y):
+def get_window_at(x, y):
     try:
         i3 = i3ipc.Connection()
         tree = i3.get_tree()
@@ -79,14 +79,22 @@ def focus_window_at(x, y):
             if not best_target:
                 best_target = tiled_candidates[-1]
 
-        else:
-            return False
+        return i3, best_target
 
+    except Exception as e:
+        print(f"Error getting window at {x}, {y}: {e}")
+        return None, None
+
+def focus_window_at(x, y):
+    i3, best_target = get_window_at(x, y)
+    if i3 and best_target:
         print(f"Focusing window: {best_target.name} (id={best_target.id})")
         i3.command(f"[con_id={best_target.id}] focus")
         return True
-
-    except Exception as e:
-        print(f"Error focusing window: {e}")
-    
     return False
+
+def get_window_info_at(x, y):
+    i3, best_target = get_window_at(x, y)
+    if best_target:
+        return getattr(best_target, 'app_id', None), getattr(best_target, 'window_class', None)
+    return None, None

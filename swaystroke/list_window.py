@@ -68,6 +68,7 @@ class GestureDrawingArea(Gtk.DrawingArea):
 class GestureListWindow(Gtk.Window):
     def __init__(self, gestures):
         super().__init__(title="Swaystroke Gestures")
+        self.gestures = gestures
         self.set_default_size(450, 600)
         self.set_border_width(10)
         
@@ -76,28 +77,72 @@ class GestureListWindow(Gtk.Window):
         if settings:
             settings.set_property("gtk-application-prefer-dark-theme", True)
 
-        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        self.add(vbox)
+        self.vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        self.add(self.vbox)
+
+        header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        self.vbox.pack_start(header_box, False, False, 5)
 
         header = Gtk.Label()
         header.set_markup("<big><b>Recorded Gestures</b></big>")
         header.set_halign(Gtk.Align.START)
-        vbox.pack_start(header, False, False, 5)
+        header_box.pack_start(header, True, True, 0)
+
+        self.filter_options = ["All", "Global"]
+        for g in gestures:
+            if getattr(g, "app_id", None):
+                opt = f"id:{g.app_id}"
+                if opt not in self.filter_options: self.filter_options.append(opt)
+            elif getattr(g, "app_class", None):
+                opt = f"class:{g.app_class}"
+                if opt not in self.filter_options: self.filter_options.append(opt)
+
+        self.combo = Gtk.ComboBoxText()
+        for opt in self.filter_options:
+            self.combo.append_text(opt)
+        self.combo.set_active(0)
+        self.combo.connect("changed", self.on_filter_changed)
+        header_box.pack_start(self.combo, False, False, 0)
 
         scrolled = Gtk.ScrolledWindow()
         scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        vbox.pack_start(scrolled, True, True, 0)
+        self.vbox.pack_start(scrolled, True, True, 0)
 
-        listbox = Gtk.ListBox()
-        listbox.set_selection_mode(Gtk.SelectionMode.NONE)
-        scrolled.add(listbox)
+        self.listbox = Gtk.ListBox()
+        self.listbox.set_selection_mode(Gtk.SelectionMode.NONE)
+        scrolled.add(self.listbox)
 
-        if not gestures:
-            empty_label = Gtk.Label(label="No gestures recorded yet.")
+        self.populate_list()
+        self.connect("destroy", Gtk.main_quit)
+
+    def on_filter_changed(self, combo):
+        self.populate_list()
+
+    def populate_list(self):
+        for child in self.listbox.get_children():
+            self.listbox.remove(child)
+
+        selected_filter = self.combo.get_active_text()
+        
+        filtered = []
+        for g in self.gestures:
+            app_str = "Global"
+            if getattr(g, "app_id", None): app_str = f"id:{g.app_id}"
+            elif getattr(g, "app_class", None): app_str = f"class:{g.app_class}"
+            
+            if selected_filter == "All":
+                filtered.append(g)
+            elif selected_filter == "Global" and app_str == "Global":
+                filtered.append(g)
+            elif selected_filter == app_str:
+                filtered.append(g)
+
+        if not filtered:
+            empty_label = Gtk.Label(label="No gestures match this filter.")
             empty_label.set_margin_top(20)
-            listbox.add(empty_label)
+            self.listbox.add(empty_label)
 
-        for g in gestures:
+        for g in filtered:
             row = Gtk.ListBoxRow()
             hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=15)
             row.add(hbox)
@@ -125,14 +170,18 @@ class GestureListWindow(Gtk.Window):
             cmd_label.set_halign(Gtk.Align.START)
             text_vbox.pack_start(cmd_label, False, False, 0)
             
-            pts_label = Gtk.Label()
-            pts_label.set_markup(f"<span foreground='gray' size='small'>Points: {len(g.points)}</span>")
-            pts_label.set_halign(Gtk.Align.START)
-            text_vbox.pack_start(pts_label, False, False, 0)
+            app_str = "Global"
+            if getattr(g, "app_id", None): app_str = f"id:{g.app_id}"
+            elif getattr(g, "app_class", None): app_str = f"class:{g.app_class}"
+            
+            info_label = Gtk.Label()
+            info_label.set_markup(f"<span foreground='gray' size='small'>App: {app_str} | Points: {len(g.points)}</span>")
+            info_label.set_halign(Gtk.Align.START)
+            text_vbox.pack_start(info_label, False, False, 0)
 
-            listbox.add(row)
+            self.listbox.add(row)
 
-        self.connect("destroy", Gtk.main_quit)
+        self.listbox.show_all()
 
 def show_gesture_list():
     storage = StorageManager(GESTURE_FILE)

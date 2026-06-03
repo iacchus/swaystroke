@@ -1,10 +1,12 @@
 import math
 
 class Gesture:
-    def __init__(self, points=None, name=None, command=None):
+    def __init__(self, points=None, name=None, command=None, app_id=None, app_class=None):
         self.points = points or []
         self.name = name
         self.command = command
+        self.app_id = app_id
+        self.app_class = app_class
 
     def add_point(self, x, y):
         self.points.append((x, y))
@@ -87,7 +89,9 @@ class Gesture:
         return {
             "name": self.name,
             "command": self.command,
-            "points": self.points
+            "points": self.points,
+            "app_id": getattr(self, "app_id", None),
+            "app_class": getattr(self, "app_class", None)
         }
 
     @classmethod
@@ -95,5 +99,7 @@ class Gesture:
         return cls(
             points=[tuple(p) for p in data.get("points", [])], 
             name=data.get("name"),
-            command=data.get("command")
+            command=data.get("command"),
+            app_id=data.get("app_id"),
+            app_class=data.get("app_class")
         )
