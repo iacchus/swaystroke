@@ -84,6 +84,15 @@ swaystroke trigger
 ```
 Bind `swaystroke trigger` to a mouse button in your sway config for the best experience.
 
+#### Systemd Service
+To start the daemon automatically on system startup, you can install the provided systemd user service from the `contrib/` directory:
+```bash
+mkdir -p ~/.config/systemd/user/
+cp contrib/swaystroke.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now swaystroke.service
+```
+
 ### List gestures
 ```bash
 swaystroke list

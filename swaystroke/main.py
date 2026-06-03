@@ -268,9 +268,13 @@ def cmd_daemon():
             conn, addr = server.accept()
             data = conn.recv(1024).decode()
             if data == "trigger":
-                win.points = []
-                win.is_drawing = False
+                win.strokes = []
+                win.current_stroke = []
                 win.gesture = None
+                win.is_drawing = False
+                if win.timeout_id:
+                    GLib.source_remove(win.timeout_id)
+                    win.timeout_id = None
                 win.queue_draw()
                 win.show_all()
             conn.close()

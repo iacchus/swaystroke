@@ -104,6 +104,10 @@ class GestureListWindow(Gtk.Window):
         self.combo.connect("changed", self.on_filter_changed)
         header_box.pack_start(self.combo, False, False, 0)
 
+        record_new_btn = Gtk.Button(label="Record New")
+        record_new_btn.connect("clicked", self.on_record_new_clicked)
+        header_box.pack_end(record_new_btn, False, False, 0)
+
         scrolled = Gtk.ScrolledWindow()
         scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         self.vbox.pack_start(scrolled, True, True, 0)
@@ -185,6 +189,14 @@ class GestureListWindow(Gtk.Window):
             btn_box.set_valign(Gtk.Align.CENTER)
             hbox.pack_end(btn_box, False, False, 0)
             
+            show_btn = Gtk.Button(label="Show")
+            show_btn.connect("clicked", self.on_show_clicked, g)
+            btn_box.pack_start(show_btn, False, False, 0)
+            
+            edit_cmd_btn = Gtk.Button(label="Edit Cmd")
+            edit_cmd_btn.connect("clicked", self.on_edit_cmd_clicked, g)
+            btn_box.pack_start(edit_cmd_btn, False, False, 0)
+            
             rerecord_btn = Gtk.Button(label="Re-record")
             rerecord_btn.connect("clicked", self.on_rerecord_clicked, g)
             btn_box.pack_start(rerecord_btn, False, False, 0)
@@ -199,13 +211,25 @@ class GestureListWindow(Gtk.Window):
         self.listbox.show_all()
 
     def on_delete_clicked(self, button, g):
-        storage = StorageManager(GESTURE_FILE)
-        if getattr(g, "id", None) is not None:
-            storage.delete_gesture(str(g.id))
-        else:
-            storage.delete_gesture(g.name)
-        self.gestures = storage.load_all()
-        self.populate_list()
+        dialog = Gtk.MessageDialog(
+            transient_for=self,
+            flags=0,
+            message_type=Gtk.MessageType.WARNING,
+            buttons=Gtk.ButtonsType.YES_NO,
+            text=f"Delete gesture '{g.name}'?",
+        )
+        dialog.format_secondary_text("This action cannot be undone.")
+        response = dialog.run()
+        dialog.destroy()
+        
+        if response == Gtk.ResponseType.YES:
+            storage = StorageManager(GESTURE_FILE)
+            if getattr(g, "id", None) is not None:
+                storage.delete_gesture(str(g.id))
+            else:
+                storage.delete_gesture(g.name)
+            self.gestures = storage.load_all()
+            self.populate_list()
 
     def on_rerecord_clicked(self, button, g):
         self.hide()
@@ -223,6 +247,105 @@ class GestureListWindow(Gtk.Window):
             
         self.show_all()
         self.populate_list()
+
+    def on_show_clicked(self, button, g):
+        import subprocess
+        g_id = str(g.id) if getattr(g, "id", None) is not None else g.name
+        subprocess.Popen(["swaystroke", "show", g_id])
+
+    def on_edit_cmd_clicked(self, button, g):
+        dialog = Gtk.Dialog(title=f"Edit Command for {g.name}", parent=self, flags=0)
+        dialog.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OK, Gtk.ResponseType.OK)
+        
+        box = dialog.get_content_area()
+        box.set_spacing(10)
+        box.set_margin_top(10)
+        box.set_margin_bottom(10)
+        box.set_margin_start(10)
+        box.set_margin_end(10)
+        
+        cmd_entry = Gtk.Entry()
+        if g.command:
+            cmd_entry.set_text(g.command)
+        box.pack_start(cmd_entry, True, True, 0)
+        
+        type_combo = Gtk.ComboBoxText()
+        type_combo.append_text("command")
+        type_combo.append_text("key")
+        type_combo.append_text("text")
+        
+        current_type = getattr(g, "action_type", "command")
+        for i, val in enumerate(["command", "key", "text"]):
+            if val == current_type:
+                type_combo.set_active(i)
+                break
+        box.pack_start(type_combo, True, True, 0)
+        
+        dialog.show_all()
+        response = dialog.run()
+        
+        if response == Gtk.ResponseType.OK:
+            g.command = cmd_entry.get_text().strip()
+            g.action_type = type_combo.get_active_text()
+            storage = StorageManager(GESTURE_FILE)
+            storage.save_gesture(g)
+            self.gestures = storage.load_all()
+            self.populate_list()
+            
+        dialog.destroy()
+
+    def on_record_new_clicked(self, button):
+        dialog = Gtk.Dialog(title="Record New Gesture", parent=self, flags=0)
+        dialog.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OK, Gtk.ResponseType.OK)
+        
+        box = dialog.get_content_area()
+        box.set_spacing(10)
+        box.set_margin_top(10)
+        box.set_margin_bottom(10)
+        box.set_margin_start(10)
+        box.set_margin_end(10)
+        
+        name_entry = Gtk.Entry()
+        name_entry.set_placeholder_text("Gesture Name")
+        box.pack_start(name_entry, True, True, 0)
+        
+        cmd_entry = Gtk.Entry()
+        cmd_entry.set_placeholder_text("Command / Keys / Text")
+        box.pack_start(cmd_entry, True, True, 0)
+        
+        type_combo = Gtk.ComboBoxText()
+        type_combo.append_text("command")
+        type_combo.append_text("key")
+        type_combo.append_text("text")
+        type_combo.set_active(0)
+        box.pack_start(type_combo, True, True, 0)
+        
+        dialog.show_all()
+        response = dialog.run()
+        
+        name = name_entry.get_text().strip()
+        cmd = cmd_entry.get_text().strip()
+        action_type = type_combo.get_active_text()
+        
+        dialog.destroy()
+        
+        if response == Gtk.ResponseType.OK and name:
+            self.hide()
+            while Gtk.events_pending():
+                Gtk.main_iteration()
+                
+            from .overlay import capture_gesture_gui
+            new_g = capture_gesture_gui()
+            if new_g:
+                new_g.name = name
+                new_g.command = cmd
+                new_g.action_type = action_type
+                storage = StorageManager(GESTURE_FILE)
+                storage.save_gesture(new_g)
+                self.gestures = storage.load_all()
+                
+            self.show_all()
+            self.populate_list()
 
 def show_gesture_list():
     storage = StorageManager(GESTURE_FILE)

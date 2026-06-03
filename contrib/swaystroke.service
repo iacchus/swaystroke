@@ -1,0 +1,16 @@
+[Unit]
+Description=Swaystroke Daemon
+Documentation=https://github.com/iacchus/swaystroke
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+# Ensure ~/.local/bin is in PATH for pipx installations
+Environment="PATH=/usr/local/bin:/usr/bin:/bin:%h/.local/bin"
+ExecStart=swaystroke daemon
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target
