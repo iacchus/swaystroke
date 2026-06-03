@@ -13,6 +13,14 @@ A modular Python-based gesture recognition tool for Sway/SwayFX (using GTK Layer
 - `main.py`: Entry point for recording, listening, and debugging.
 - `visualizer.py`: Imported comparison tool to see gesture matches.
 
+### Gesture Recognition Algorithm
+
+Swaystroke uses a simplified implementation of the **$1 Unistroke Recognizer** algorithm (specifically, a point-cloud matching variation) to identify gestures:
+1. **Resampling:** The drawn path is resampled into a fixed number of evenly spaced points (32 points) so that the speed of drawing doesn't affect the shape.
+2. **Scaling:** The points are scaled to fit within a standardized bounding box (1x1) so that the size of the gesture doesn't matter.
+3. **Translation:** The points are translated so that the centroid (center of mass) of the gesture sits at the origin `(0, 0)`.
+4. **Matching:** It computes the average Euclidean distance between the corresponding points of the drawn gesture and the stored templates. The closest match (with the lowest average distance) is selected as the recognized gesture.
+
 ## Installation
 
 Swaystroke requires GTK3, GTK Layer Shell, and PyGObject bindings. These are best installed via your system package manager.
