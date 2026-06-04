@@ -122,21 +122,33 @@ def _listen_or_debug(mode, multi_stroke=False, timeout=None):
         start_x, start_y = gesture.points[0]
         win_app_id, win_app_class = get_window_info_at(start_x, start_y)
         
-        filtered_templates = []
+        app_specific_templates = []
+        global_templates = []
         for t in templates:
             if t.app_id is None and t.app_class is None:
-                filtered_templates.append(t)
+                global_templates.append(t)
             elif t.app_id and win_app_id and t.app_id == win_app_id:
-                filtered_templates.append(t)
+                app_specific_templates.append(t)
             elif t.app_class and win_app_class and t.app_class == win_app_class:
-                filtered_templates.append(t)
+                app_specific_templates.append(t)
         
-        if not filtered_templates:
+        if not app_specific_templates and not global_templates:
             click.echo(f"No gestures configured for app_id={win_app_id}, app_class={win_app_class} or globally.")
             sys.exit(0)
 
-        recognizer = Recognizer(filtered_templates)
-        match, score = recognizer.recognize(gesture)
+        match = None
+        score = 0.0
+        
+        if app_specific_templates:
+            recognizer = Recognizer(app_specific_templates)
+            match, score = recognizer.recognize(gesture)
+            
+        if not match and global_templates:
+            recognizer = Recognizer(global_templates)
+            g_match, g_score = recognizer.recognize(gesture)
+            if g_match:
+                match = g_match
+                score = g_score
         
         info = {
             "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -290,22 +302,34 @@ def cmd_daemon(verbose):
         if verbose:
             click.echo(f"Daemon: Detected window - App ID: {win_app_id}, App Class: {win_app_class}")
         
-        filtered = []
+        app_specific_templates = []
+        global_templates = []
         for t in templates:
             if t.app_id is None and t.app_class is None:
-                filtered.append(t)
+                global_templates.append(t)
             elif t.app_id and win_app_id and t.app_id == win_app_id:
-                filtered.append(t)
+                app_specific_templates.append(t)
             elif t.app_class and win_app_class and t.app_class == win_app_class:
-                filtered.append(t)
+                app_specific_templates.append(t)
                 
-        if not filtered:
+        if not app_specific_templates and not global_templates:
             if verbose:
                 click.echo("Daemon: No gestures configured for this window or globally.")
             return
             
-        recognizer = Recognizer(filtered)
-        match, score = recognizer.recognize(gesture)
+        match = None
+        score = 0.0
+        
+        if app_specific_templates:
+            recognizer = Recognizer(app_specific_templates)
+            match, score = recognizer.recognize(gesture)
+            
+        if not match and global_templates:
+            recognizer = Recognizer(global_templates)
+            g_match, g_score = recognizer.recognize(gesture)
+            if g_match:
+                match = g_match
+                score = g_score
         
         info = {
             "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),

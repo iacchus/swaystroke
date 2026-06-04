@@ -21,7 +21,7 @@ Swaystroke uses a simplified implementation of the **$1 Unistroke Recognizer** a
 3. **Translation:** The points are translated so that the centroid (center of mass) of the gesture sits at the origin `(0, 0)`.
 4. **Matching:** It computes the average Euclidean distance between the corresponding points of the drawn gesture and the stored templates. The closest match (with the lowest average distance) is selected as the recognized gesture.
 
-*Swaystroke also features **Directional Invariance** (gestures are matched both forwards and backwards) and **Multi-stroke support** (you can lift your mouse to draw complex shapes like an "X" before the timeout triggers).*
+*Swaystroke also features **Multi-stroke support** (you can lift your mouse to draw complex shapes like an "X" before the timeout triggers).*
 
 ## Installation
 
