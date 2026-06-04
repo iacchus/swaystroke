@@ -16,9 +16,11 @@ def hex_to_rgba(hex_color, opacity=1.0):
     return 0.0, 0.0, 0.0, opacity
 
 class GestureGUI(Gtk.Window):
-    def __init__(self, on_finished=None):
+    def __init__(self, on_finished=None, multi_stroke=False, timeout=None):
         super().__init__()
         self.on_finished = on_finished
+        self.multi_stroke = multi_stroke
+        self.timeout = timeout
         self.is_drawing = False
         self.gesture = None
         self.strokes = []
@@ -47,6 +49,7 @@ class GestureGUI(Gtk.Window):
         self.add_events(Gdk.EventMask.BUTTON_PRESS_MASK | 
                         Gdk.EventMask.BUTTON_RELEASE_MASK | 
                         Gdk.EventMask.POINTER_MOTION_MASK |
+                        Gdk.EventMask.BUTTON_MOTION_MASK |
                         Gdk.EventMask.KEY_PRESS_MASK)
                         
         self.connect("draw", self.on_draw)
@@ -96,8 +99,11 @@ class GestureGUI(Gtk.Window):
             self.gesture.add_point(event.x, event.y)
             self.queue_draw()
             
-            timeout_ms = CONFIG.get("multistroke_timeout", 500)
-            self.timeout_id = GLib.timeout_add(timeout_ms, self.finish_gesture)
+            if self.multi_stroke:
+                timeout_ms = self.timeout if self.timeout is not None else CONFIG.get("multistroke_timeout", 500)
+                self.timeout_id = GLib.timeout_add(timeout_ms, self.finish_gesture)
+            else:
+                self.finish_gesture()
         return True
 
     def finish_gesture(self):
@@ -106,6 +112,35 @@ class GestureGUI(Gtk.Window):
         if self.on_finished:
             self.on_finished(self.gesture)
         return False
+
+    def start_gesture_external(self):
+        if self.timeout_id:
+            GLib.source_remove(self.timeout_id)
+            self.timeout_id = None
+            
+        self.is_drawing = True
+        self.current_stroke = []
+        self.strokes.append(self.current_stroke)
+        if not self.gesture:
+            self.gesture = Gesture()
+            
+        # We rely on the first on_motion_notify event to capture the
+        # actual starting point. Querying Wayland for the pointer position
+        # while the window was hidden returns a stale coordinate.
+        self.queue_draw()
+
+    def stop_gesture_external(self):
+        if self.is_drawing:
+            self.is_drawing = False
+            self.queue_draw()
+            if self.multi_stroke:
+                timeout_ms = self.timeout if self.timeout is not None else CONFIG.get("multistroke_timeout", 500)
+                self.timeout_id = GLib.timeout_add(timeout_ms, self.finish_gesture)
+            else:
+                self.finish_gesture()
+        else:
+            # If we somehow missed it, just finish
+            self.finish_gesture()
 
     def on_draw(self, widget, cr):
         width = self.get_allocated_width()
@@ -145,13 +180,13 @@ class GestureGUI(Gtk.Window):
             cr.stroke()
         return False
 
-def capture_gesture_gui():
+def capture_gesture_gui(multi_stroke=False, timeout=None):
     gesture_result = []
     def on_finished(g):
         gesture_result.append(g)
         Gtk.main_quit()
         
-    win = GestureGUI(on_finished=on_finished)
+    win = GestureGUI(on_finished=on_finished, multi_stroke=multi_stroke, timeout=timeout)
     win.show_all()
     Gtk.main()
     

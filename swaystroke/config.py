@@ -53,6 +53,10 @@ if os.path.exists(CONFIG_FILE):
                 if section in user_config:
                     for key, val in user_config[section].items():
                         CONFIG[section][key] = val
+            if "multistroke_timeout" in user_config:
+                CONFIG["multistroke_timeout"] = user_config["multistroke_timeout"]
+            elif "general" in user_config and "multistroke_timeout" in user_config["general"]:
+                CONFIG["multistroke_timeout"] = user_config["general"]["multistroke_timeout"]
     except Exception as e:
         print(f"Error loading {CONFIG_FILE}: {e}")
 DEFAULT_TOML = """[trail]
@@ -64,6 +68,9 @@ width = 4
 color = "#000000"
 opacity = 0.1
 text = "Swaystroke is listening for gesture..."
+
+[general]
+multistroke_timeout = 500
 """
 
 def generate_default_config():

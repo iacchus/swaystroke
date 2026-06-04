@@ -54,9 +54,10 @@ def execute_gesture_action(match, gesture):
 @click.option("--app-id", help="Bind the gesture to a specific Wayland application ID.")
 @click.option("--app-class", help="Bind the gesture to a specific XWayland window class.")
 @click.option("--get-app-id-or-class", is_flag=True, help="Automatically get the app ID or class from the window under the gesture.")
+@click.option("--multistroke-timeout", type=int, default=None, help="Timeout in milliseconds for multi-stroke gestures.")
 @click.argument("name")
 @click.argument("command", required=False)
-def cmd_record(action_type, is_global, app_id, app_class, get_app_id_or_class, name, command):
+def cmd_record(action_type, is_global, app_id, app_class, get_app_id_or_class, multistroke_timeout, name, command):
     """Record a new gesture with the given name and map it to a shell command"""
     storage = StorageManager(GESTURE_FILE)
     templates = storage.load_all()
@@ -67,7 +68,7 @@ def cmd_record(action_type, is_global, app_id, app_class, get_app_id_or_class, n
             sys.exit(0)
     
     click.echo(f"A transparent overlay will appear. Click and drag to draw '{name}'. Press Esc to cancel.")
-    gesture = capture_gesture_gui()
+    gesture = capture_gesture_gui(multi_stroke=True, timeout=multistroke_timeout)
     
     if gesture:
         if get_app_id_or_class:
@@ -95,22 +96,26 @@ def cmd_record(action_type, is_global, app_id, app_class, get_app_id_or_class, n
         click.echo("Gesture recording cancelled or invalid.")
 
 @main.command(name="listen")
-def cmd_listen():
+@click.option("--multi-stroke", is_flag=True, help="Wait for multiple strokes before executing.")
+@click.option("--multistroke-timeout", type=int, default=None, help="Timeout in milliseconds for multi-stroke gestures.")
+def cmd_listen(multi_stroke, multistroke_timeout):
     """Listen for a gesture and execute the corresponding command"""
-    _listen_or_debug(mode="listen")
+    _listen_or_debug(mode="listen", multi_stroke=multi_stroke, timeout=multistroke_timeout)
 
 @main.command(name="debug")
-def cmd_debug():
+@click.option("--multi-stroke", is_flag=True, help="Wait for multiple strokes before executing.")
+@click.option("--multistroke-timeout", type=int, default=None, help="Timeout in milliseconds for multi-stroke gestures.")
+def cmd_debug(multi_stroke, multistroke_timeout):
     """Listen for a gesture and open the visualizer to show the match and score"""
-    _listen_or_debug(mode="debug")
+    _listen_or_debug(mode="debug", multi_stroke=multi_stroke, timeout=multistroke_timeout)
 
-def _listen_or_debug(mode):
+def _listen_or_debug(mode, multi_stroke=False, timeout=None):
     storage = StorageManager(GESTURE_FILE)
     templates = storage.load_all()
     click.echo(f"Loaded {len(templates)} gestures.")
 
     click.echo("A transparent overlay will appear. Click and drag to draw. Press Esc to cancel.")
-    gesture = capture_gesture_gui()
+    gesture = capture_gesture_gui(multi_stroke=multi_stroke, timeout=timeout)
     
     if gesture:
         start_x, start_y = gesture.points[0]
@@ -218,7 +223,8 @@ def cmd_delete(identifier):
         click.echo(f"Gesture '{identifier}' not found.")
 
 @main.command(name="daemon")
-def cmd_daemon():
+@click.option("-v", "--verbose", is_flag=True, help="Enable verbose logging for debugging.")
+def cmd_daemon(verbose):
     """Run Swaystroke in the background for zero-latency triggers"""
     import gi
     gi.require_version('Gtk', '3.0')
@@ -236,13 +242,21 @@ def cmd_daemon():
     
     def on_gesture_finished(gesture):
         if not gesture or len(gesture.points) < 5:
+            if verbose:
+                click.echo(f"Daemon: Gesture finished but was too short or None. Points: {len(gesture.points) if gesture else 0}")
             return
+            
+        if verbose:
+            click.echo(f"Daemon: Gesture finished with {len(gesture.points)} points.")
             
         storage = StorageManager(GESTURE_FILE)
         templates = storage.load_all()
         
         start_x, start_y = gesture.points[0]
         win_app_id, win_app_class = get_window_info_at(start_x, start_y)
+        
+        if verbose:
+            click.echo(f"Daemon: Detected window - App ID: {win_app_id}, App Class: {win_app_class}")
         
         filtered = []
         for t in templates:
@@ -254,12 +268,25 @@ def cmd_daemon():
                 filtered.append(t)
                 
         if not filtered:
+            if verbose:
+                click.echo("Daemon: No gestures configured for this window or globally.")
             return
             
         recognizer = Recognizer(filtered)
         match, score = recognizer.recognize(gesture)
-        if match and match.command:
-            execute_gesture_action(match, gesture)
+        if match:
+            if verbose:
+                click.echo(f"Daemon: Recognized gesture '{match.name}' with score {score:.2f}")
+            if match.command:
+                if verbose:
+                    click.echo(f"Daemon: Executing command '{match.command}'")
+                execute_gesture_action(match, gesture)
+            else:
+                if verbose:
+                    click.echo("Daemon: Recognized gesture has no command assigned.")
+        else:
+            if verbose:
+                click.echo(f"Daemon: No match found. Best score was {score:.2f}")
             
     win = GestureGUI(on_finished=on_gesture_finished)
     
@@ -267,7 +294,20 @@ def cmd_daemon():
         try:
             conn, addr = server.accept()
             data = conn.recv(1024).decode()
-            if data == "trigger":
+            
+            if verbose:
+                click.echo(f"Daemon: Received command '{data}'")
+                
+            parts = data.split(":")
+            command_type = parts[0]
+            timeout = None
+            if len(parts) > 1 and parts[1].isdigit():
+                timeout = int(parts[1])
+
+            if command_type in ["trigger", "trigger_start", "trigger_multi", "trigger_start_multi"]:
+                win.multi_stroke = "multi" in command_type
+                win.timeout = timeout
+                # Show window and clear state
                 win.strokes = []
                 win.current_stroke = []
                 win.gesture = None
@@ -277,9 +317,19 @@ def cmd_daemon():
                     win.timeout_id = None
                 win.queue_draw()
                 win.show_all()
+                
+                if "start" in command_type:
+                    win.start_gesture_external()
+                    
+            elif command_type in ["trigger_stop", "trigger_stop_multi"]:
+                win.multi_stroke = "multi" in command_type
+                win.timeout = timeout
+                win.stop_gesture_external()
+                
             conn.close()
-        except:
-            pass
+        except Exception as e:
+            if verbose:
+                click.echo(f"Daemon: Connection error - {e}")
         return True
         
     GLib.io_add_watch(server.fileno(), GLib.IO_IN, on_connection)
@@ -287,13 +337,29 @@ def cmd_daemon():
     Gtk.main()
 
 @main.command(name="trigger")
-def cmd_trigger():
+@click.option("--start", is_flag=True, help="Trigger and immediately start recording a gesture.")
+@click.option("--stop", is_flag=True, help="Stop a currently recording gesture that was triggered with --start.")
+@click.option("--multi-stroke", is_flag=True, help="Wait for multiple strokes before executing.")
+@click.option("--multistroke-timeout", type=int, default=None, help="Timeout in milliseconds for multi-stroke gestures.")
+def cmd_trigger(start, stop, multi_stroke, multistroke_timeout):
     """Trigger the daemon overlay instantly"""
     sock_path = "/tmp/swaystroke.sock"
     try:
         client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         client.connect(sock_path)
-        client.sendall(b"trigger")
+        
+        if start:
+            cmd = b"trigger_start_multi" if multi_stroke else b"trigger_start"
+        elif stop:
+            cmd = b"trigger_stop_multi" if multi_stroke else b"trigger_stop"
+        else:
+            cmd = b"trigger_multi" if multi_stroke else b"trigger"
+            
+        if multistroke_timeout is not None:
+            cmd += f":{multistroke_timeout}".encode()
+            
+        client.sendall(cmd)
+            
         client.close()
     except Exception as e:
         click.echo(f"Could not connect to daemon: {e}. Is it running?")

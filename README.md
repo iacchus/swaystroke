@@ -55,7 +55,7 @@ pipx install swaystroke
 
 ### Record a gesture
 ```bash
-swaystroke record [--type TYPE] [--global] [--app-id ID] [--app-class CLASS] [--get-app-id-or-class] <name> [command]
+swaystroke record [--type TYPE] [--global] [--app-id ID] [--app-class CLASS] [--get-app-id-or-class] [--multistroke-timeout MS] <name> [command]
 ```
 Click and drag to draw your gesture in the transparent overlay.
 Options:
@@ -64,14 +64,15 @@ Options:
 - `--app-id ID`: Bind the gesture to a specific Wayland application ID.
 - `--app-class CLASS`: Bind the gesture to a specific XWayland window class.
 - `--get-app-id-or-class`: Automatically get the app ID or class from the window under the gesture.
+- `--multistroke-timeout MS`: Override the timeout in milliseconds for this recording.
 
 If no options are provided, it defaults to a global gesture.
 
 ### Listen for gestures
 ```bash
-swaystroke listen
+swaystroke listen [--multi-stroke] [--multistroke-timeout MS]
 ```
-Draw your gesture. The tool will identify the window under your starting point, focus it, and run the command.
+Draw your gesture. The tool will identify the window under your starting point, focus it, and run the command. By default, the gesture completes as soon as you release the mouse button. Use the `--multi-stroke` flag if you want it to wait for additional strokes before executing. You can override the timeout with `--multistroke-timeout`.
 
 ### Daemon Mode (Zero-Latency)
 For zero startup latency, you can run Swaystroke in daemon mode. This keeps the GTK overlay in the background.
@@ -80,9 +81,22 @@ swaystroke daemon &
 ```
 Trigger the listening overlay instantly via:
 ```bash
-swaystroke trigger
+swaystroke trigger [--multi-stroke] [--multistroke-timeout MS]
 ```
-Bind `swaystroke trigger` to a mouse button in your sway config for the best experience.
+
+**Hold-to-Draw (Recommended)**
+
+You can configure the daemon to start drawing immediately when a key is pressed, and execute when released. Use the `--start` and `--stop` flags in your Sway configuration. 
+
+*(Note: Due to a known Sway limitation, `--release` bindings for **mouse buttons** are ignored when hovering over a layer-shell overlay. Therefore, Hold-to-Draw is strongly recommended to be used with a **Keyboard Key** instead of a mouse button.)*
+
+```conf
+# Start drawing the gesture immediately on key press
+bindsym Mod4+g exec swaystroke trigger --start
+
+# Finish drawing the gesture on key release
+bindsym --release Mod4+g exec swaystroke trigger --stop
+```
 
 #### Systemd Service
 To start the daemon automatically on system startup, you can install the provided systemd user service from the `contrib/` directory:
@@ -122,5 +136,8 @@ Draw a gesture to see a side-by-side comparison with the closest match.
 ```bash
 swaystroke generate-config
 ```
-Generate the default configuration file in the config directory.
-
+Generate the default configuration file in `~/.config/swaystroke/config.toml`. You can configure the visual appearance of the trail and overlay, as well as the timeout duration for multi-stroke gestures (in milliseconds):
+```toml
+[general]
+multistroke_timeout = 500
+```
