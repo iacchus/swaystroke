@@ -193,7 +193,7 @@ class GestureListWindow(Gtk.Window):
             show_btn.connect("clicked", self.on_show_clicked, g)
             btn_box.pack_start(show_btn, False, False, 0)
             
-            edit_cmd_btn = Gtk.Button(label="Edit Cmd")
+            edit_cmd_btn = Gtk.Button(label="Edit")
             edit_cmd_btn.connect("clicked", self.on_edit_cmd_clicked, g)
             btn_box.pack_start(edit_cmd_btn, False, False, 0)
             
@@ -232,15 +232,43 @@ class GestureListWindow(Gtk.Window):
             self.populate_list()
 
     def on_rerecord_clicked(self, button, g):
+        dialog = Gtk.Dialog(title=f"Re-record {g.name}", parent=self, flags=0)
+        dialog.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, "Record", Gtk.ResponseType.OK)
+        
+        box = dialog.get_content_area()
+        box.set_spacing(10)
+        box.set_margin_top(10)
+        box.set_margin_bottom(10)
+        box.set_margin_start(10)
+        box.set_margin_end(10)
+        
+        bind_app_check = Gtk.CheckButton(label="Update app from window under new gesture")
+        box.pack_start(bind_app_check, True, True, 0)
+        
+        dialog.show_all()
+        response = dialog.run()
+        bind_app = bind_app_check.get_active()
+        dialog.destroy()
+        
+        if response != Gtk.ResponseType.OK:
+            return
+            
         self.hide()
         while Gtk.events_pending():
             Gtk.main_iteration()
             
         from .overlay import capture_gesture_gui
-        new_g = capture_gesture_gui()
+        new_g = capture_gesture_gui(multi_stroke=True)
         
         if new_g:
             g.points = new_g.points
+            if bind_app:
+                from .focus import get_window_info_at
+                start_x, start_y = new_g.points[0]
+                win_app_id, win_app_class = get_window_info_at(start_x, start_y)
+                g.app_id = win_app_id if win_app_id else None
+                g.app_class = win_app_class if win_app_class else None
+                
             storage = StorageManager(GESTURE_FILE)
             storage.save_gesture(g)
             self.gestures = storage.load_all()
@@ -254,7 +282,7 @@ class GestureListWindow(Gtk.Window):
         subprocess.Popen(["swaystroke", "show", g_id])
 
     def on_edit_cmd_clicked(self, button, g):
-        dialog = Gtk.Dialog(title=f"Edit Command for {g.name}", parent=self, flags=0)
+        dialog = Gtk.Dialog(title=f"Edit Gesture: {g.name}", parent=self, flags=0)
         dialog.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OK, Gtk.ResponseType.OK)
         
         box = dialog.get_content_area()
@@ -263,6 +291,10 @@ class GestureListWindow(Gtk.Window):
         box.set_margin_bottom(10)
         box.set_margin_start(10)
         box.set_margin_end(10)
+        
+        name_entry = Gtk.Entry()
+        name_entry.set_text(g.name)
+        box.pack_start(name_entry, True, True, 0)
         
         cmd_entry = Gtk.Entry()
         if g.command:
@@ -281,12 +313,31 @@ class GestureListWindow(Gtk.Window):
                 break
         box.pack_start(type_combo, True, True, 0)
         
+        app_id_entry = Gtk.Entry()
+        app_id_entry.set_placeholder_text("App ID (optional, e.g., firefox)")
+        if getattr(g, "app_id", None):
+            app_id_entry.set_text(g.app_id)
+        box.pack_start(app_id_entry, True, True, 0)
+        
+        app_class_entry = Gtk.Entry()
+        app_class_entry.set_placeholder_text("App Class (optional, for XWayland)")
+        if getattr(g, "app_class", None):
+            app_class_entry.set_text(g.app_class)
+        box.pack_start(app_class_entry, True, True, 0)
+        
         dialog.show_all()
         response = dialog.run()
         
         if response == Gtk.ResponseType.OK:
+            g.name = name_entry.get_text().strip()
             g.command = cmd_entry.get_text().strip()
             g.action_type = type_combo.get_active_text()
+            
+            app_id_val = app_id_entry.get_text().strip()
+            app_class_val = app_class_entry.get_text().strip()
+            g.app_id = app_id_val if app_id_val else None
+            g.app_class = app_class_val if app_class_val else None
+            
             storage = StorageManager(GESTURE_FILE)
             storage.save_gesture(g)
             self.gestures = storage.load_all()
@@ -320,12 +371,26 @@ class GestureListWindow(Gtk.Window):
         type_combo.set_active(0)
         box.pack_start(type_combo, True, True, 0)
         
+        bind_app_check = Gtk.CheckButton(label="Auto-detect app from window under gesture")
+        box.pack_start(bind_app_check, True, True, 0)
+        
+        app_id_entry = Gtk.Entry()
+        app_id_entry.set_placeholder_text("App ID (optional, e.g., firefox)")
+        box.pack_start(app_id_entry, True, True, 0)
+        
+        app_class_entry = Gtk.Entry()
+        app_class_entry.set_placeholder_text("App Class (optional, for XWayland)")
+        box.pack_start(app_class_entry, True, True, 0)
+        
         dialog.show_all()
         response = dialog.run()
         
         name = name_entry.get_text().strip()
         cmd = cmd_entry.get_text().strip()
         action_type = type_combo.get_active_text()
+        bind_app = bind_app_check.get_active()
+        app_id_val = app_id_entry.get_text().strip()
+        app_class_val = app_class_entry.get_text().strip()
         
         dialog.destroy()
         
@@ -335,11 +400,27 @@ class GestureListWindow(Gtk.Window):
                 Gtk.main_iteration()
                 
             from .overlay import capture_gesture_gui
-            new_g = capture_gesture_gui()
+            # Default to multi-stroke so they can record complex gestures
+            new_g = capture_gesture_gui(multi_stroke=True)
             if new_g:
                 new_g.name = name
                 new_g.command = cmd
                 new_g.action_type = action_type
+                
+                if bind_app:
+                    from .focus import get_window_info_at
+                    start_x, start_y = new_g.points[0]
+                    win_app_id, win_app_class = get_window_info_at(start_x, start_y)
+                    if win_app_id:
+                        new_g.app_id = win_app_id
+                    elif win_app_class:
+                        new_g.app_class = win_app_class
+                else:
+                    if app_id_val:
+                        new_g.app_id = app_id_val
+                    if app_class_val:
+                        new_g.app_class = app_class_val
+
                 storage = StorageManager(GESTURE_FILE)
                 storage.save_gesture(new_g)
                 self.gestures = storage.load_all()

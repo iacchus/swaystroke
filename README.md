@@ -68,6 +68,13 @@ Options:
 
 If no options are provided, it defaults to a global gesture.
 
+#### Finding an App ID or Class
+If you need to manually bind a gesture to a specific application and aren't sure of its ID or Class, you can query Sway's window tree. Focus the application, then run this command in your terminal:
+```bash
+swaymsg -t get_tree | jq '.. | select(.focused? == true) | {app_id, class, name}'
+```
+This will print the `app_id` (for native Wayland apps) or `class` (for XWayland apps) of the currently focused window.
+
 ### Listen for gestures
 ```bash
 swaystroke listen [--multi-stroke] [--multistroke-timeout MS]
