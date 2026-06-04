@@ -75,6 +75,19 @@ swaymsg -t get_tree | jq '.. | select(.focused? == true) | {app_id, class, name}
 ```
 This will print the `app_id` (for native Wayland apps) or `class` (for XWayland apps) of the currently focused window.
 
+#### Using the "key" Action Type
+When using the `key` action type, Swaystroke utilizes the `wtype` utility to simulate Wayland keypresses.
+In the Command field (or CLI), simply write your desired keyboard shortcut, separating keys with a plus sign (`+`). 
+
+**Examples:**
+- `ctrl+c`
+- `ctrl+shift+t`
+- `alt+f4`
+- `logo+d`
+
+Swaystroke will automatically parse these into the correct press/release modifier sequences.
+*(Note: Ensure you have `wtype` installed for this feature to work. For more information, see the [official wtype repository](https://github.com/atx/wtype) or the [Arch Linux wtype manual](https://man.archlinux.org/man/wtype.1).)*
+
 ### Listen for gestures
 ```bash
 swaystroke listen [--multi-stroke] [--multistroke-timeout MS]

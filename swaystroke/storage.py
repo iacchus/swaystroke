@@ -69,3 +69,23 @@ class StorageManager:
                 return [Gesture.from_dict(g) for g in data]
         except (json.JSONDecodeError, KeyError):
             return []
+
+def load_history(history_file):
+    if not os.path.exists(history_file):
+        return []
+    try:
+        with open(history_file, 'r') as f:
+            return json.load(f)
+    except (json.JSONDecodeError, KeyError):
+        return []
+
+def save_history(history_file, gesture_info, limit):
+    if limit <= 0:
+        return
+    history = load_history(history_file)
+    history.insert(0, gesture_info)
+    if len(history) > limit:
+        history = history[:limit]
+    os.makedirs(os.path.dirname(history_file), exist_ok=True)
+    with open(history_file, 'w') as f:
+        json.dump(history, f, indent=4)

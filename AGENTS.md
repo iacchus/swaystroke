@@ -31,3 +31,4 @@ Swaystroke is a modular Python-based gesture recognition tool for Sway/SwayFX, u
 1. **Module Separation**: Keep UI logic inside `gui.py` and logic/comparison inside `recognizer.py`/`gesture.py`.
 2. **GTK/Wayland Specifics**: Assume a Wayland environment (Sway). Use `i3ipc` for window management interactions in `focus.py`.
 3. **Running the App**: If making changes, instruct the user to run using the command pattern: `swaystroke <command>`.
+4. **GUI/CLI Parity**: Any GUI feature should have a corresponding CLI feature when it applies.

@@ -4,14 +4,15 @@ import time
 import click
 import subprocess
 import time
-from .config import GESTURE_FILE, generate_default_config
-from .storage import StorageManager
+import datetime
+from .config import GESTURE_FILE, HISTORY_FILE, CONFIG, generate_default_config
+from .storage import StorageManager, save_history, load_history
 from .recognizer import Recognizer
 from .gesture import Gesture
 from .overlay import capture_gesture_gui
 from .focus import focus_window_at, get_window_info_at
 from .visualizer import GestureVisualizer
-from .list_window import show_gesture_list
+from .gui import run_gui
 import socket
 import os
 
@@ -136,6 +137,16 @@ def _listen_or_debug(mode, multi_stroke=False, timeout=None):
 
         recognizer = Recognizer(filtered_templates)
         match, score = recognizer.recognize(gesture)
+        
+        info = {
+            "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "points": gesture.points,
+            "matched_name": match.name if match else "Unrecognized",
+            "score": score,
+            "command": getattr(match, "command", "") if match else ""
+        }
+        save_history(HISTORY_FILE, info, CONFIG.get("history_limit", 30))
+
         if match:
             click.echo(f"RECOGNIZED: {match.name} (Score: {score:.2f})")
             
@@ -171,9 +182,7 @@ def cmd_list():
         click.echo("No gestures found.")
         sys.exit(0)
         
-    click.echo("+" + "-"*6 + "+" + "-"*22 + "+" + "-"*32 + "+" + "-"*12 + "+" + "-"*20 + "+")
-    click.echo(f"| {'ID':<4} | {'Name':<20} | {'Command':<30} | {'Points':<10} | {'App':<18} |")
-    click.echo("+" + "-"*6 + "+" + "-"*22 + "+" + "-"*32 + "+" + "-"*12 + "+" + "-"*20 + "+")
+    click.echo(f"{'ID':<4} | {'Name':<20} | {'Command':<30} | {'Points':<10} | {'App':<18}")
     for g in templates:
         cmd = g.command if g.command else "None"
         name_str = (g.name[:17] + "...") if len(g.name) > 20 else g.name
@@ -186,13 +195,36 @@ def cmd_list():
         
         g_id = str(g.id) if getattr(g, "id", None) is not None else "?"
         
-        click.echo(f"| {g_id:<4} | {name_str:<20} | {cmd_str:<30} | {len(g.points):<10} | {app_str:<18} |")
-    click.echo("+" + "-"*6 + "+" + "-"*22 + "+" + "-"*32 + "+" + "-"*12 + "+" + "-"*20 + "+")
+        click.echo(f"{g_id:<4} | {name_str:<20} | {cmd_str:<30} | {len(g.points):<10} | {app_str:<18}")
+
+@main.command(name="gui")
+def cmd_gui():
+    """Show the multi-tab graphical user interface"""
+    run_gui()
 
 @main.command(name="list-gui")
 def cmd_list_gui():
-    """Show a scrollable, graphical window of all recorded gestures"""
-    show_gesture_list()
+    """Legacy alias: Show the multi-tab graphical user interface"""
+    run_gui()
+
+@main.command(name="history")
+def cmd_history():
+    """Print an ASCII list of the recent gesture history"""
+    history = load_history(HISTORY_FILE)
+    if not history:
+        click.echo("History is empty.")
+        sys.exit(0)
+        
+    click.echo(f"{'Time':<20} | {'Matched':<20} | {'Score':<8} | {'Command':<30}")
+    for h in history:
+        time_str = h.get("timestamp", "")[:19]
+        matched = h.get("matched_name", "Unrecognized")
+        matched = (matched[:17] + "...") if len(matched) > 20 else matched
+        score_str = f"{h.get('score', 0.0):.2f}"
+        cmd_str = h.get("command", "")
+        cmd_str = (cmd_str[:27] + "...") if len(cmd_str) > 30 else cmd_str
+        
+        click.echo(f"{time_str:<20} | {matched:<20} | {score_str:<8} | {cmd_str:<30}")
 
 @main.command(name="show")
 @click.argument("identifier")
@@ -274,6 +306,16 @@ def cmd_daemon(verbose):
             
         recognizer = Recognizer(filtered)
         match, score = recognizer.recognize(gesture)
+        
+        info = {
+            "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "points": gesture.points,
+            "matched_name": match.name if match else "Unrecognized",
+            "score": score,
+            "command": getattr(match, "command", "") if match else ""
+        }
+        save_history(HISTORY_FILE, info, CONFIG.get("history_limit", 30))
+        
         if match:
             if verbose:
                 click.echo(f"Daemon: Recognized gesture '{match.name}' with score {score:.2f}")
