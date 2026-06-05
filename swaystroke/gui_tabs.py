@@ -1,9 +1,10 @@
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, Gdk
+from gi.repository import Gtk, Gdk, GLib
 import cairo
 import math
 import datetime
+import os
 
 from .storage import StorageManager, load_history
 from .config import GESTURE_FILE, HISTORY_FILE, CONFIG, save_config
@@ -428,10 +429,6 @@ class HistoryTab(Gtk.Box):
         header.set_halign(Gtk.Align.START)
         header_box.pack_start(header, True, True, 0)
         
-        refresh_btn = Gtk.Button(label="Refresh")
-        refresh_btn.connect("clicked", self.on_refresh_clicked)
-        header_box.pack_end(refresh_btn, False, False, 0)
-        
         scrolled = Gtk.ScrolledWindow()
         scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         self.pack_start(scrolled, True, True, 0)
@@ -440,10 +437,19 @@ class HistoryTab(Gtk.Box):
         self.listbox.set_selection_mode(Gtk.SelectionMode.NONE)
         scrolled.add(self.listbox)
 
-        self.populate_list()
+        self.last_mtime = 0
+        self.check_mtime()
+        GLib.timeout_add(500, self.check_mtime)
 
-    def on_refresh_clicked(self, button):
-        self.populate_list()
+    def check_mtime(self):
+        try:
+            mtime = os.path.getmtime(HISTORY_FILE)
+            if mtime != self.last_mtime:
+                self.last_mtime = mtime
+                self.populate_list()
+        except FileNotFoundError:
+            pass
+        return True
 
     def populate_list(self):
         for child in self.listbox.get_children():

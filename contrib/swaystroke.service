@@ -8,7 +8,7 @@ After=graphical-session.target
 Type=simple
 # Ensure ~/.local/bin is in PATH for pipx installations
 Environment="PATH=/usr/local/bin:/usr/bin:/bin:%h/.local/bin"
-ExecStart=swaystroke daemon
+ExecStart=/usr/bin/env swaystroke daemon
 Restart=on-failure
 RestartSec=5
 
